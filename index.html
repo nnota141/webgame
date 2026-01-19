@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Web game</title>
+<title>Side Scroller</title>
 
 <style>
     body {
@@ -30,6 +30,8 @@ const ctx = canvas.getContext("2d");
 // ---------------- SETTINGS ----------------
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
+const GROUND = HEIGHT - 80;
+const GRAVITY = 0.6;
 const keys = {};
 
 // ---------------- LOAD IMAGES ----------------
@@ -56,58 +58,121 @@ bossImage.src = "assets/boss.png";
 // ---------------- PLAYER ----------------
 const player = {
     x: 150,
-    y: HEIGHT - 120,
+    y: GROUND - 64,
     width: 64,
     height: 64,
     speed: 5,
+
+    vy: 0,
+    jumping: false,
+
     sprite: playerSprites.idle,
-    attacking: false
+    attacking: false,
+    attackCooldown: 0
 };
 
 // ---------------- BOSS ----------------
 const boss = {
     x: 700,
-    y: HEIGHT - 120,
+    y: GROUND - 96,
     width: 96,
-    height: 96
+    height: 96,
+    health: 100,
+    maxHealth: 100
 };
 
 // ---------------- INPUT ----------------
 window.addEventListener("keydown", e => keys[e.key] = true);
 window.addEventListener("keyup", e => keys[e.key] = false);
 
+// ---------------- ATTACK HITBOX ----------------
+function getAttackBox() {
+    const size = 40;
+
+    if (!player.attacking) return null;
+
+    if (player.sprite === playerSprites.right)
+        return { x: player.x + player.width, y: player.y + 10, w: size, h: size };
+
+    if (player.sprite === playerSprites.left)
+        return { x: player.x - size, y: player.y + 10, w: size, h: size };
+
+    if (player.sprite === playerSprites.up)
+        return { x: player.x + 10, y: player.y - size, w: size, h: size };
+
+    if (player.sprite === playerSprites.down)
+        return { x: player.x + 10, y: player.y + player.height, w: size, h: size };
+
+    return null;
+}
+
+// ---------------- COLLISION ----------------
+function rectsOverlap(a, b) {
+    return (
+        a.x < b.x + b.width &&
+        a.x + a.w > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.h > b.y
+    );
+}
+
 // ---------------- UPDATE ----------------
 function update() {
 
-    // Movement
-    if (keys["a"] || keys["A"]) {
-        player.x -= player.speed;
-    }
-    if (keys["d"] || keys["D"]) {
-        player.x += player.speed;
+    // Horizontal movement
+    if (keys["a"] || keys["A"]) player.x -= player.speed;
+    if (keys["d"] || keys["D"]) player.x += player.speed;
+
+    // Jump
+    if ((keys["w"] || keys[" "] ) && !player.jumping) {
+        player.vy = -12;
+        player.jumping = true;
     }
 
-    // Attacks
+    // Gravity
+    player.vy += GRAVITY;
+    player.y += player.vy;
+
+    if (player.y >= GROUND - player.height) {
+        player.y = GROUND - player.height;
+        player.vy = 0;
+        player.jumping = false;
+    }
+
+    // Attack cooldown
+    if (player.attackCooldown > 0) player.attackCooldown--;
+
     player.attacking = false;
 
-    if (keys["ArrowUp"]) {
-        player.sprite = playerSprites.up;
-        player.attacking = true;
+    if (player.attackCooldown === 0) {
+        if (keys["ArrowUp"]) {
+            player.sprite = playerSprites.up;
+            player.attacking = true;
+        }
+        else if (keys["ArrowDown"]) {
+            player.sprite = playerSprites.down;
+            player.attacking = true;
+        }
+        else if (keys["ArrowLeft"]) {
+            player.sprite = playerSprites.left;
+            player.attacking = true;
+        }
+        else if (keys["ArrowRight"]) {
+            player.sprite = playerSprites.right;
+            player.attacking = true;
+        }
+        else {
+            player.sprite = playerSprites.idle;
+        }
     }
-    else if (keys["ArrowDown"]) {
-        player.sprite = playerSprites.down;
-        player.attacking = true;
-    }
-    else if (keys["ArrowLeft"]) {
-        player.sprite = playerSprites.left;
-        player.attacking = true;
-    }
-    else if (keys["ArrowRight"]) {
-        player.sprite = playerSprites.right;
-        player.attacking = true;
-    }
-    else {
-        player.sprite = playerSprites.idle;
+
+    // Hit detection
+    const attackBox = getAttackBox();
+    if (attackBox && boss.health > 0) {
+        if (rectsOverlap(attackBox, boss)) {
+            boss.health -= 1;
+            player.attackCooldown = 15;
+        }
     }
 }
 
@@ -115,14 +180,28 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-    // Background
     ctx.drawImage(background, 0, 0, WIDTH, HEIGHT);
 
     // Boss
-    ctx.drawImage(bossImage, boss.x, boss.y, boss.width, boss.height);
+    if (boss.health > 0) {
+        ctx.drawImage(bossImage, boss.x, boss.y, boss.width, boss.height);
+
+        // Boss health bar
+        ctx.fillStyle = "red";
+        ctx.fillRect(boss.x, boss.y - 10, boss.width, 6);
+        ctx.fillStyle = "lime";
+        ctx.fillRect(boss.x, boss.y - 10, boss.width * (boss.health / boss.maxHealth), 6);
+    }
 
     // Player
     ctx.drawImage(player.sprite, player.x, player.y, player.width, player.height);
+
+    // Debug attack box (optional)
+    const box = getAttackBox();
+    if (box) {
+        ctx.strokeStyle = "yellow";
+        ctx.strokeRect(box.x, box.y, box.w, box.h);
+    }
 }
 
 // ---------------- GAME LOOP ----------------
