@@ -2,115 +2,137 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Simple Runner Game</title>
+<title>Side Scroller</title>
+
 <style>
-  body {
-    margin: 0;
-    background: #f7f7f7;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    font-family: Arial, sans-serif;
-  }
+    body {
+        margin: 0;
+        background: black;
+        overflow: hidden;
+    }
 
-  #game {
-    width: 600px;
-    height: 200px;
-    background: #fff;
-    border: 2px solid #333;
-    position: relative;
-    overflow: hidden;
-  }
-
-  #dino {
-    width: 40px;
-    height: 40px;
-    background: #333;
-    position: absolute;
-    bottom: 0;
-    left: 40px;
-  }
-
-  .jump {
-    animation: jump 500ms ease-out;
-  }
-
-  @keyframes jump {
-    0%   { bottom: 0; }
-    50%  { bottom: 90px; }
-    100% { bottom: 0; }
-  }
-
-  #cactus {
-    width: 20px;
-    height: 40px;
-    background: #555;
-    position: absolute;
-    bottom: 0;
-    right: -20px;
-    animation: move 1.5s linear infinite;
-  }
-
-  @keyframes move {
-    from { right: -20px; }
-    to   { right: 600px; }
-  }
-
-  #score {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 16px;
-  }
+    canvas {
+        display: block;
+        margin: auto;
+        background: #000;
+    }
 </style>
 </head>
+
 <body>
 
-<div id="game">
-  <div id="score">Score: 0</div>
-  <div id="dino"></div>
-  <div id="cactus"></div>
-</div>
+<canvas id="game" width="960" height="540"></canvas>
 
 <script>
-  const dino = document.getElementById("dino");
-  const cactus = document.getElementById("cactus");
-  const scoreEl = document.getElementById("score");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-  let score = 0;
-  let isJumping = false;
+// ---------------- SETTINGS ----------------
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
+const keys = {};
 
-  function jump() {
-    if (isJumping) return;
-    isJumping = true;
-    dino.classList.add("jump");
-    setTimeout(() => {
-      dino.classList.remove("jump");
-      isJumping = false;
-    }, 500);
-  }
+// ---------------- LOAD IMAGES ----------------
+const background = new Image();
+background.src = "assets/background.png";
 
-  document.addEventListener("keydown", e => {
-    if (e.code === "Space") jump();
-  });
+const playerSprites = {
+    idle: new Image(),
+    up: new Image(),
+    down: new Image(),
+    left: new Image(),
+    right: new Image()
+};
 
-  document.addEventListener("click", jump);
+playerSprites.idle.src = "assets/player_idle.png";
+playerSprites.up.src = "assets/player_up.png";
+playerSprites.down.src = "assets/player_down.png";
+playerSprites.left.src = "assets/player_left.png";
+playerSprites.right.src = "assets/player_right.png";
 
-  setInterval(() => {
-    score++;
-    scoreEl.textContent = "Score: " + score;
-  }, 100);
+const bossImage = new Image();
+bossImage.src = "assets/boss.png";
 
-  setInterval(() => {
-    const dinoBottom = parseInt(getComputedStyle(dino).bottom);
-    const cactusRight = parseInt(getComputedStyle(cactus).right);
+// ---------------- PLAYER ----------------
+const player = {
+    x: 150,
+    y: HEIGHT - 120,
+    width: 64,
+    height: 64,
+    speed: 5,
+    sprite: playerSprites.idle,
+    attacking: false
+};
 
-    if (cactusRight > 520 && cactusRight < 560 && dinoBottom < 40) {
-      alert("Game Over!\nScore: " + score);
-      location.reload();
+// ---------------- BOSS ----------------
+const boss = {
+    x: 700,
+    y: HEIGHT - 120,
+    width: 96,
+    height: 96
+};
+
+// ---------------- INPUT ----------------
+window.addEventListener("keydown", e => keys[e.key] = true);
+window.addEventListener("keyup", e => keys[e.key] = false);
+
+// ---------------- UPDATE ----------------
+function update() {
+
+    // Movement
+    if (keys["a"] || keys["A"]) {
+        player.x -= player.speed;
     }
-  }, 20);
+    if (keys["d"] || keys["D"]) {
+        player.x += player.speed;
+    }
+
+    // Attacks
+    player.attacking = false;
+
+    if (keys["ArrowUp"]) {
+        player.sprite = playerSprites.up;
+        player.attacking = true;
+    }
+    else if (keys["ArrowDown"]) {
+        player.sprite = playerSprites.down;
+        player.attacking = true;
+    }
+    else if (keys["ArrowLeft"]) {
+        player.sprite = playerSprites.left;
+        player.attacking = true;
+    }
+    else if (keys["ArrowRight"]) {
+        player.sprite = playerSprites.right;
+        player.attacking = true;
+    }
+    else {
+        player.sprite = playerSprites.idle;
+    }
+}
+
+// ---------------- DRAW ----------------
+function draw() {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    // Background
+    ctx.drawImage(background, 0, 0, WIDTH, HEIGHT);
+
+    // Boss
+    ctx.drawImage(bossImage, boss.x, boss.y, boss.width, boss.height);
+
+    // Player
+    ctx.drawImage(player.sprite, player.x, player.y, player.width, player.height);
+}
+
+// ---------------- GAME LOOP ----------------
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
 </script>
 
 </body>
